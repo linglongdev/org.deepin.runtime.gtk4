@@ -1,0 +1,36 @@
+From 0df1d23b9d7fcccc9ecc4e2ff39ae1565e330a12 Mon Sep 17 00:00:00 2001
+From: guanzi008 <245205080@qq.com>
+Date: Sat, 20 Sep 2025 19:57:50 +0800
+Subject: [PATCH] fix(runtime): adapt to Linglong runtime path
+
+---
+ debian/rules | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/debian/rules b/debian/rules
+index bfac162d7..5af04e090 100755
+--- a/debian/rules
++++ b/debian/rules
+@@ -20,7 +20,8 @@ USE_OLD_PKG_NAMES=NO
+ 
+ EXTRA_DH_ARGUMENTS =
+ EXTRA_CMAKE_ARGUMENTS = -DPORT=GTK \
+-	   -DCMAKE_INSTALL_LIBEXECDIR=lib/$(DEB_HOST_MULTIARCH) \
++	   -DCMAKE_INSTALL_PREFIX=/runtime  \
++	   -DCMAKE_INSTALL_LIBEXECDIR=/runtime/lib/$(DEB_HOST_MULTIARCH) \
+ 	   -DCMAKE_C_FLAGS_RELEASE="" \
+ 	   -DCMAKE_C_FLAGS_DEBUG="" \
+ 	   -DCMAKE_CXX_FLAGS_RELEASE="" \
+@@ -329,6 +330,9 @@ override_dh_auto_install:
+ 	$(SOUP2_BUILD) dh_auto_install -Bbuild-soup2
+ 	$(SOUP3_BUILD) dh_auto_install -Bbuild-soup3
+ 	$(GTK4_BUILD)  dh_auto_install -Bbuild-gtk4
++	mkdir -p debian/tmp/usr
++	cp -a debian/tmp/runtime/* debian/tmp/usr/
++	rm -r debian/tmp/runtime
+ 
+ override_dh_auto_clean: debian/control
+ 	$(SOUP2_BUILD) dh_auto_clean -Bbuild-soup2
+-- 
+2.43.0
+
