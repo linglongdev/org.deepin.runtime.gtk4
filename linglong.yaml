@@ -9,7 +9,7 @@ package:
     GTK4 is a cross-platform C application framework. GTK's primary feature
     is its rich set of widgets that provide standard and beautiful GUI functionality.
 
-base: org.deepin.base/25.2.0
+base: org.deepin.base/25.2.1
 
 build: |
   rm -rf /etc/apt/sources.list.d/testing.sources
