@@ -73,6 +73,10 @@ buildext:
       - libgles-dev
       - gi-docgen
       - jdupes
+      - ccache
+      - clang-16
+      - lld-16
+      - libsoup2.4-dev
 
 build: |
   mkdir -p /project/webkit2gtk4
