@@ -1,0 +1,5 @@
+# ll-builder 的构建工作目录：overlay / sources / output / cache（还有 ccache），
+# 动辄几个 GB，root 与 arm64 两套都要忽略
+linglong/
+# 构建中断后残留的旧工作目录
+linglong.stale.*/
