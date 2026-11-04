@@ -102,7 +102,8 @@ build: |
   # 断言补丁确实导入到 series：quilt import 的失败会被上面的 || true 吞掉，
   # 那样会静默退化成"三变体"构建（更慢但也能成功），很难发现。
   for p in 0001-fix-runtime-adapt-to-Linglong-runtime-path \
-           0002-build-only-webkit2gtk-4.1-soup3-flavour; do
+           0002-build-only-webkit2gtk-4.1-soup3-flavour \
+           0003-ccache-dir-outside-build-tree; do
     grep -q "^${p}.patch$" debian/patches/series || {
       echo "错误: 补丁 ${p} 未导入 debian/patches/series" >&2
       exit 1
@@ -117,10 +118,18 @@ build: |
   if [ "$jobs" -gt "$(nproc)" ]; then jobs=$(nproc); fi
   if [ "$jobs" -lt 2 ]; then jobs=2; fi
   export DEB_BUILD_OPTIONS="parallel=$jobs nocheck nodoc noautodbgsym terse"
-  echo "[build] 并行编译任务数: $jobs (nproc=$(nproc), 内存 ${mem_gb}G)"
+  # 优化点 3: ccache。ll-builder 每次构建都会从 fetch cache 重新展开源码树，
+  # debian/rules 默认把缓存放在 $(CURDIR)/ccache（在源码树里，会跟着一起被删，
+  # 实测 0 命中）；0003 补丁让它支持外部指定，这里放到 /project 下的 linglong/
+  # （= 宿主仓库目录，跨构建保留；linglong/ 已在 .gitignore 里）。
+  export CCACHE_DIR=/project/linglong/ccache
+  ccache --max-size=5G >/dev/null 2>&1 || true
+  echo "[build] 并行编译任务数: $jobs (nproc=$(nproc), 内存 ${mem_gb}G), ccache 目录: $CCACHE_DIR"
+  echo "[build] ccache 构建前: $(ccache -s 2>/dev/null | tr -s ' \n' ' ' | cut -c1-150)"
   echo "[build] webkit2gtk 编译开始: $(date '+%F %T')"
   dpkg-buildpackage -us -uc -nc -b || (echo "首次失败，5 秒后重试…" >&2; sleep 5; dpkg-buildpackage -us -uc -nc -b)
   echo "[build] webkit2gtk 编译结束: $(date '+%F %T')"
+  echo "[build] ccache 构建后: $(ccache -s 2>/dev/null | tr -s ' \n' ' ' | cut -c1-150)"
   # dpkg-buildpackage 会把 deb 输出到源码目录的父目录，也就是
   # /project/linglong/sources；build.bash 直接从这些 deb 里取本仓库编译的包。
   # 这里显式检查产物是否存在，避免旧脚本写死 2.48.0 版本号导致的静默失败。

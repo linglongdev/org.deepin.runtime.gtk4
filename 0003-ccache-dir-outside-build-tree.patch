@@ -1,0 +1,24 @@
+From: Linyaps Runtime Maintainers <dev@deepin.org>
+Subject: [PATCH] 允许用环境变量指定 ccache 目录
+
+ll-builder 每次构建都会从自己的 fetch cache 重新展开源码树，debian/rules 里
+写死的 $(CURDIR)/ccache 会跟着源码树一起消失，ccache 永远是 0 命中
+（2026-11-03 的实测：Cacheable calls 3193，Hits 0，Misses 3193）。
+
+改成 CCACHE_DIR ?= ...，构建脚本（linglong.yaml 的 build 段）就能把缓存指到
+源码树外的持久目录，本地重复构建/带缓存挂载的 CI 才能真正命中。
+---
+diff --git a/debian/rules b/debian/rules
+--- a/debian/rules
++++ b/debian/rules
+@@ -6,7 +6,9 @@ include /usr/share/dpkg/architecture.mk
+ include /usr/share/dpkg/buildflags.mk
+ 
+ export CCACHE_NOHASHDIR=1
+-export CCACHE_DIR=$(CURDIR)/ccache
++# 允许外部指定：ll-builder 每次构建都会重新展开源码树，放在源码树里的 ccache
++# 缓存会跟着丢掉（实测 0 命中），构建脚本把 CCACHE_DIR 指到源码树外即可复用。
++export CCACHE_DIR ?= $(CURDIR)/ccache
+ 
+ # soup2 build -> 4.0 API packages (bookworm and older)
+ # soup3 build -> 4.1 API packages (bookworm and newer)
