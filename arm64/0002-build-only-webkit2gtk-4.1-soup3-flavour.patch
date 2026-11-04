@@ -1,0 +1,56 @@
+From 7c3d1e2a9b4f4e6d8a0c5b3f2e1d9a7c6b4e8f20 Mon Sep 17 00:00:00 2001
+From: Linyaps Runtime Maintainers <dev@deepin.org>
+Date: Tue, 3 Nov 2026 10:38:00 +0800
+Subject: [PATCH] build only the webkit2gtk-4.1 (soup3/GTK3) flavour
+
+The Debian packaging of webkit2gtk builds three flavours by default:
+  * soup2 (webkit2gtk-4.0 / GTK3 / libsoup2)
+  * soup3 (webkit2gtk-4.1 / GTK3 / libsoup3)
+  * gtk4  (webkitgtk-6.0  / GTK4 / libsoup3)
+
+This runtime only ships the 4.1 packages (libwebkit2gtk-4.1-0,
+libjavascriptcoregtk-4.1-0, their -dev and gir packages), so the soup2 and
+gtk4 flavours are compiled for nothing and roughly triple the build time.
+
+Disable both flavours here. They can be re-enabled by switching these two
+variables back to YES.
+
+debian/control is generated from debian/rules and the flavour switches above
+change which binary packages exist, so make sure it is regenerated before
+build/binary/clean run. Otherwise dh keeps using the committed 21-package
+control, tries to package the soup2/gtk4 packages that were never compiled and
+aborts at dh_install with "missing files".
+---
+ debian/rules | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/debian/rules b/debian/rules
+index a3ede23e..adfb910c 100755
+--- a/debian/rules
++++ b/debian/rules
+@@ -11,9 +11,9 @@ export CCACHE_DIR=$(CURDIR)/ccache
+ # soup2 build -> 4.0 API packages (bookworm and older)
+ # soup3 build -> 4.1 API packages (bookworm and newer)
+ # gtk4 build  -> 6.0 API packages (bookworm and newer)
+-ENABLE_SOUP2=YES
++ENABLE_SOUP2=NO
+ ENABLE_SOUP3=YES
+-ENABLE_GTK4=YES
++ENABLE_GTK4=NO
+ # YES => build libwebkit2gtk-4.0-doc, libjavascriptcoregtk-4.0-bin and webkit2gtk-driver (for bookworm)
+ # BOTH => build libwebkitgtk-doc, libjavascriptcoregtk-bin and webkitgtk-webdriver and the transitional packages (for trixie)
+ # NO => build *only* libwebkitgtk-doc, libjavascriptcoregtk-bin and webkitgtk-webdriver (for forky)
+@@ -248,6 +248,11 @@ WEBKIT_DOC_DH_FILES = \
+ # This converts the debhelper files of the doc package to the old name
+ WEBKIT_DH_RENAME_DOC = sed -e 's/libwebkitgtk-doc/libwebkit2gtk-4.0-doc/g'
+ 
++# debian/control 由本文件生成，而下面的 ENABLE_* 开关会改变二进制包集合，
++# 所以每次 build/binary/clean 之前都必须先重新生成 control（否则 dh 会按旧的
++# 包列表去打包未编译的 soup2/gtk4 包，在 dh_install 阶段报 missing files）。
++build binary binary-arch binary-indep install install-arch install-indep clean: debian/control
++
+ %:
+ 	dh $@ --with gir --buildsystem=cmake+ninja $(EXTRA_DH_ARGUMENTS)
+ 
+-- 
+2.43.0
