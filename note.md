@@ -133,6 +133,31 @@ runtime 层和 base 层：runtime 里没有任何库的 RUNPATH 指向 `/usr`（
 模块有），所以这一步目前是空转。`build.bash` 里改成"有 patchelf 才改写，没有就打印警告"，
 既不新增依赖，也不会再出现"跑完 3 小时最后一步 command not found"的意外。
 
+### 3.1.1 精简 build_depends 踩的坑：dpkg-checkbuilddeps
+
+精简之后 CI（干净的构建容器）第一次跑就失败了：
+
+```
+dpkg-checkbuilddeps: error: Unmet build dependencies: libsoup2.4-dev gi-docgen jdupes
+dpkg-buildpackage: warning: build dependencies/conflicts unsatisfied; aborting
+```
+
+原因是 `dpkg-buildpackage` 在 `debian/rules` 重新生成 `debian/control` **之前**就会跑
+`dpkg-checkbuilddeps`，而仓库里提交的 `debian/control` 是多变体 + 带文档的默认配置：
+它声明 `libsoup2.4-dev`（soup2 变体用）和 `Build-Depends-Indep: gi-docgen, jdupes`（合并
+API 文档用），而我们既只编 4.1 变体（`ENABLE_SOUP2=NO`）又关了文档
+（`ENABLE_DOCUMENTATION=OFF`），这三个包根本用不到。
+
+本机之所以没暴露：overlay 的 upperdir 一直复用，第一轮构建（77 个依赖）装过的
+`libsoup2.4-dev` / `gi-docgen` / `jdupes` 还留在容器里，`dpkg-checkbuilddeps` 自然通过。
+**教训**：验证"精简依赖"必须用干净容器，否则旧依赖会掩盖问题。
+
+修法：新增 `0004-build-depends-single-flavour.patch`，把 `debian/control` 和
+`debian/control.in` 里这三个包去掉（顺带去掉只属于 gtk4 变体的 `libgtk-4-dev`），
+让声明的构建依赖与实际编译的变体一致。改完用脚本核对过：`control` 声明 48 个依赖，
+46 个由 buildext 提供，另外两个是 `debhelper-compat`（由 `debhelper` 提供）和
+`ruby:native`（由 `ruby` 提供），都在 `build_depends` 里。
+
 ### 3.2 ccache 其实一直没生效（0 命中）
 
 用容器里自带的 ccache 直接读缓存统计（第二轮构建结束时）：

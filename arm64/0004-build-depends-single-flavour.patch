@@ -1,0 +1,55 @@
+From 9a1c7d3e5b2f4a6c8d0e1f3a5b7c9d0e2f4a6b8c Mon Sep 17 00:00:00 2001
+From: Linyaps Runtime Maintainers <dev@deepin.org>
+Date: Tue, 4 Nov 2026 17:10:00 +0800
+Subject: [PATCH] build-depends: match the single-flavour, docs-disabled build
+
+The committed debian/control is generated for the full multi-flavour build:
+it wants libsoup2.4-dev (soup2 flavour, disabled by
+0002-build-only-webkit2gtk-4.1-soup3-flavour) and the Build-Depends-Indep of
+gi-docgen + jdupes (only used to merge API docs, and ENABLE_DOCUMENTATION is
+off).
+
+dpkg-buildpackage runs dpkg-checkbuilddeps before debian/rules regenerates
+control, so with a clean container these three unused packages abort the build:
+
+  dpkg-checkbuilddeps: error: Unmet build dependencies: libsoup2.4-dev gi-docgen jdupes
+
+Drop them from both debian/control and debian/control.in so the declared
+Build-Depends reflects what we actually build. libgtk-4-dev goes away with
+libsoup2.4-dev for the same reason (it belongs to the gtk4 flavour).
+---
+ debian/control    | 3 +--
+ debian/control.in | 1 -
+ 2 files changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/debian/control b/debian/control
+--- a/debian/control
++++ b/debian/control
+@@ -27,7 +27,7 @@
+                libmanette-0.2-dev [!hurd-any],
+                libxslt1-dev,
+                libxml2-dev,
+-               libsoup2.4-dev,libsoup-3.0-dev,libgtk-3-dev,libgtk-4-dev,
++               libsoup-3.0-dev,libgtk-3-dev,
+                libsqlite3-dev,
+                libsystemd-dev [!hurd-any],
+                libgudev-1.0-dev [!hurd-any],
+@@ -53,7 +53,6 @@
+                libegl-dev,
+                libgl-dev,
+                libgles-dev
+-Build-Depends-Indep: gi-docgen, jdupes
+ Standards-Version: 4.7.2
+ Vcs-Browser: https://salsa.debian.org/webkit-team/webkit
+ Vcs-Git: https://salsa.debian.org/webkit-team/webkit.git
+diff --git a/debian/control.in b/debian/control.in
+--- a/debian/control.in
++++ b/debian/control.in
+@@ -52,7 +52,6 @@
+                libegl-dev,
+                libgl-dev,
+                libgles-dev
+-Build-Depends-Indep: gi-docgen, jdupes
+ Standards-Version: 4.7.2
+ Vcs-Browser: https://salsa.debian.org/webkit-team/webkit
+ Vcs-Git: https://salsa.debian.org/webkit-team/webkit.git
