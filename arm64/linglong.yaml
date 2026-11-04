@@ -103,7 +103,8 @@ build: |
   # 那样会静默退化成"三变体"构建（更慢但也能成功），很难发现。
   for p in 0001-fix-runtime-adapt-to-Linglong-runtime-path \
            0002-build-only-webkit2gtk-4.1-soup3-flavour \
-           0003-ccache-dir-outside-build-tree; do
+           0003-ccache-dir-outside-build-tree \
+           0004-build-depends-single-flavour; do
     grep -q "^${p}.patch$" debian/patches/series || {
       echo "错误: 补丁 ${p} 未导入 debian/patches/series" >&2
       exit 1
