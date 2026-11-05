@@ -8,6 +8,11 @@
 # "kind: file 源 + install_dep 解 deb" 那套流程。
 set -e
 
+# comm(1) 要求输入按当前 collation 排序，容器里 LANG 往往是 zh_CN.UTF-8 而 locale
+# 并没装，sort/comm 对"已排序"的判断会不一致（日志里那句 "comm: input is not in
+# sorted order"），结果是静默丢包。统一用 C 排序。
+export LC_ALL=C
+
 : "${PREFIX:?PREFIX 未设置（需要在 ll-builder 的构建环境里运行）}"
 
 src_root=${SRC_ROOT:-/}                       # 文件来源根（离线自测时指向解包出来的假根）
@@ -28,13 +33,13 @@ else
     built_deps=$(for deb in "$deb_dir"/*.deb; do
                      [ -e "$deb" ] || continue
                      dpkg-deb -f "$deb" Depends 2>/dev/null
-                 done | tr ',' '\n' | sed 's/^[[:space:]]*//; s/[ (|].*//' | grep -vE '^$' \
-                     | comm -23 - <(printf '%s\n' $built_pkgs) | tr '\n' ' ')
+                 done | tr ',' '\n' | sed 's/^[[:space:]]*//; s/[ (|].*//' | grep -vE '^$' | sort -u \
+                     | comm -23 - <(printf '%s\n' $built_pkgs | sort -u) | tr '\n' ' ')
     # apt 的依赖闭包（只算硬依赖，避免把 Recommends 链带进来让 runtime 变大）
     closure=$(apt-cache depends --recurse --no-recommends --no-suggests --no-conflicts \
                   --no-breaks --no-replaces --no-enhances $apt_roots $built_deps 2>/dev/null \
               | awk '/^[A-Za-z0-9]/ {print $1}' | sed 's/:.*//' | sort -u)
-    pkgs=$(comm -23 <(printf '%s\n' "$closure") <(printf '%s\n' "$base_pkgs") | sort -u)
+    pkgs=$(comm -23 <(printf '%s\n' "$closure" | sort -u) <(printf '%s\n' "$base_pkgs" | sort -u) | sort -u)
     pkgs=$(printf '%s\n' $pkgs $built_pkgs | sort -u)
     # 过滤掉虚拟包/没装上的包（它们没有文件可拷），其余照常处理
     real=""

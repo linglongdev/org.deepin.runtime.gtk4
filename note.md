@@ -183,6 +183,25 @@ make[1]: *** [debian/rules:259: install] Error 255
 `dpkg-source --before-build` 复现出三个相同的时间戳，确认 `make -f debian/rules -n
 debian/control` 仍然会打印重建命令，再真正生成一遍确认 control 里没有 6.0 包。
 
+### 3.1.3 build.bash 里的 comm 会按 locale 静默丢包
+
+CI 第一次跑绿的那次，runtime 只装了 **232** 个包（本地是 235），日志里夹着：
+
+```
+comm: file 1 is not in sorted order
+comm: file 2 is not in sorted order
+comm: input is not in sorted order
+```
+
+`comm(1)` 要求两个输入按**当前 collation** 有序，而容器里 `LANG=zh_CN.UTF-8` 但 locale 并没装，
+`sort` 与 `comm` 对"有序"的判断不一致，于是 `comm` 会静默跳过一些行——两处调用都会漏包：
+
+- 自编译 deb 的 `Depends` 过滤（`comm -23 -` 的输入没排序）；
+- 依赖闭包减去 base 包清单（`closure` 与 `base_pkgs` 排序规则不一致）。
+
+修法：`build.bash` 开头 `export LC_ALL=C`，并给两处 `comm` 的输入都补 `sort -u`。
+验证：本地修复前 3 条警告、修复后 0 条，包数 235 不变（CI 上则从 232 恢复成 235）。
+
 ### 3.2 ccache 其实一直没生效（0 命中）
 
 用容器里自带的 ccache 直接读缓存统计（第二轮构建结束时）：
