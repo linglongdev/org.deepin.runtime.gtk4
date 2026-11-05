@@ -158,6 +158,31 @@ API 文档用），而我们既只编 4.1 变体（`ENABLE_SOUP2=NO`）又关了
 46 个由 buildext 提供，另外两个是 `debhelper-compat`（由 `debhelper` 提供）和
 `ruby:native`（由 `ruby` 提供），都在 `build_depends` 里。
 
+### 3.1.2 又一次踩坑：control 的重新生成依赖 mtime
+
+补上 0004 之后 CI 仍然失败，这次是编译全部通过、打包阶段：
+
+```
+dh_install: warning: libwebkitgtk-6.0-dev missing files: usr/include/webkitgtk-6.0/webkit
+dh_install: error: missing files, aborting
+make[1]: *** [debian/rules:259: install] Error 255
+```
+
+0002 补丁里加过 `build binary ... : debian/control`，让 `debian/control` 在打包前
+按 `ENABLE_*` 重新生成；但 make 只按 mtime 判断。`dpkg-source --before-build` 应用补丁时
+会把所有被改过的文件时间戳**统一成同一个值**——0004 同时改了 `debian/control` 和
+`debian/control.in`，于是 `control`、`control.in`、`rules` 三个时间戳完全相同，make 认为
+`control` 已是最新，继续用上游那份"三变体"的旧包列表，dh_install 就去找根本没编译的
+`libwebkitgtk-6.0-*`。
+
+之前几轮没有 0004，`debian/control` 本身没被补丁改过，mtime 比 `rules` 老，make 才会重建
+——纯属运气，**不是可靠的依赖关系**。
+
+修法：给 `debian/control` 加一个 `FORCE` 前置，让它每次构建都重新生成
+（`debian/control: FORCE` + `.PHONY: FORCE` + `FORCE:`）。验证方式也做了：先用
+`dpkg-source --before-build` 复现出三个相同的时间戳，确认 `make -f debian/rules -n
+debian/control` 仍然会打印重建命令，再真正生成一遍确认 control 里没有 6.0 包。
+
 ### 3.2 ccache 其实一直没生效（0 命中）
 
 用容器里自带的 ccache 直接读缓存统计（第二轮构建结束时）：

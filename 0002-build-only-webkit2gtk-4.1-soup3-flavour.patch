@@ -40,7 +40,7 @@ index a3ede23e..adfb910c 100755
  # YES => build libwebkit2gtk-4.0-doc, libjavascriptcoregtk-4.0-bin and webkit2gtk-driver (for bookworm)
  # BOTH => build libwebkitgtk-doc, libjavascriptcoregtk-bin and webkitgtk-webdriver and the transitional packages (for trixie)
  # NO => build *only* libwebkitgtk-doc, libjavascriptcoregtk-bin and webkitgtk-webdriver (for forky)
-@@ -248,6 +248,11 @@ WEBKIT_DOC_DH_FILES = \
+@@ -248,6 +248,18 @@ WEBKIT_DOC_DH_FILES = \
  # This converts the debhelper files of the doc package to the old name
  WEBKIT_DH_RENAME_DOC = sed -e 's/libwebkitgtk-doc/libwebkit2gtk-4.0-doc/g'
  
@@ -48,6 +48,13 @@ index a3ede23e..adfb910c 100755
 +# 所以每次 build/binary/clean 之前都必须先重新生成 control（否则 dh 会按旧的
 +# 包列表去打包未编译的 soup2/gtk4 包，在 dh_install 阶段报 missing files）。
 +build binary binary-arch binary-indep install install-arch install-indep clean: debian/control
++
++# 上面那条只按 mtime 判断：dpkg-source 应用补丁时会把所有被改过的文件时间戳统一，
++# control 和 rules 一样新时 make 认为 control 已是最新，仍旧沿用多变体的旧包列表
++# （CI 就是这么炸的，dh_install 找不到 libwebkitgtk-6.0-*）。加 FORCE 让它每次重建。
++debian/control: FORCE
++.PHONY: FORCE
++FORCE:
 +
  %:
  	dh $@ --with gir --buildsystem=cmake+ninja $(EXTRA_DH_ARGUMENTS)
